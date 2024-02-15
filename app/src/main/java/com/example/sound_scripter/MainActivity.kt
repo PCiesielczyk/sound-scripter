@@ -1,10 +1,13 @@
 package com.example.sound_scripter
 
+import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,35 +28,38 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.sound_scripter.services.AudioCaptureService
 import com.example.sound_scripter.ui.theme.SoundScripterTheme
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var mediaProjectionManager: MediaProjectionManager
+    private lateinit var createScreenCaptureIntent: Intent
+    private lateinit var mediaProjection: MediaProjection
+
+    private val mediaProjectionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            mediaProjection = mediaProjectionManager.getMediaProjection(result.resultCode, result.data!!)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val mediaProjectionManager = getSystemService(MediaProjectionManager::class.java)
-        var mediaProjection: MediaProjection
-
-        val startMediaProjection = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            if (result.resultCode == RESULT_OK) {
-                mediaProjection = mediaProjectionManager
-                    .getMediaProjection(result.resultCode, result.data!!)
-            }
-        }
-        startMediaProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
+        mediaProjectionManager = getSystemService(MediaProjectionManager::class.java)
+        createScreenCaptureIntent = mediaProjectionManager.createScreenCaptureIntent()
+        val audioCaptureServiceIntent = Intent(this, AudioCaptureService::class.java)
+        startForegroundService(audioCaptureServiceIntent)
 
         setContent {
             SoundScripterTheme {
-                // A surface container using the 'background' color from the theme
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    TranscriptDisplay()
+                    TranscriptDisplay(mediaProjectionLauncher, createScreenCaptureIntent)
                 }
             }
         }
@@ -61,7 +67,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun TranscriptDisplay(modifier: Modifier = Modifier) {
+fun TranscriptDisplay(mediaProjectionLauncher: ActivityResultLauncher<Intent>,
+                      createScreenCaptureIntent: Intent,
+                      modifier: Modifier = Modifier) {
     Column (
         modifier = modifier.padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -76,7 +84,7 @@ fun TranscriptDisplay(modifier: Modifier = Modifier) {
         val onEnabled: (Boolean) -> Unit = {
             enabled = it
             displayedText = if (it) listeningDisplayText else initialDisplayText
-
+            mediaProjectionLauncher.launch(createScreenCaptureIntent)
         }
 
         IconToggleButton(checked = enabled,
@@ -106,17 +114,5 @@ fun TranscriptDisplay(modifier: Modifier = Modifier) {
             fontSize = 21.sp,
             color = Color.LightGray
         )
-    }
-}
-
-
-
-@Preview(showBackground = true)
-@Composable
-fun TranscriptDisplayPreview() {
-    SoundScripterTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            TranscriptDisplay()
-        }
     }
 }
