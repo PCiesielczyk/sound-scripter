@@ -1,10 +1,16 @@
 package com.example.sound_scripter
 
 import android.content.Intent
-import android.content.pm.ServiceInfo
+import android.content.pm.PackageManager
+import android.Manifest
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioPlaybackCaptureConfiguration
+import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -31,14 +37,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import com.example.sound_scripter.services.AudioCaptureService
 import com.example.sound_scripter.ui.theme.SoundScripterTheme
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var mediaProjectionManager: MediaProjectionManager
-    private lateinit var createScreenCaptureIntent: Intent
-    private lateinit var mediaProjection: MediaProjection
+    private var mediaProjection: MediaProjection? = null
+    private lateinit var audioRecord: AudioRecord
 
     private val mediaProjectionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -48,27 +55,66 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val recordAudioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && mediaProjection != null) {
+            audioRecord = getAudioRecord()
+            audioRecord.startRecording()
+        } else {
+            Toast.makeText(this, "Record audio permission not granted.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         mediaProjectionManager = getSystemService(MediaProjectionManager::class.java)
-        createScreenCaptureIntent = mediaProjectionManager.createScreenCaptureIntent()
+        val createScreenCaptureIntent = mediaProjectionManager.createScreenCaptureIntent()
+
         val audioCaptureServiceIntent = Intent(this, AudioCaptureService::class.java)
         startForegroundService(audioCaptureServiceIntent)
+
+        mediaProjectionLauncher.launch(createScreenCaptureIntent)
 
         setContent {
             SoundScripterTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    TranscriptDisplay(mediaProjectionLauncher, createScreenCaptureIntent)
+                    TranscriptDisplay(recordAudioPermissionLauncher)
                 }
             }
         }
     }
+
+    private fun getAudioRecord(): AudioRecord {
+        if (!checkPermission()) {
+            Toast.makeText(this, "Record audio permission not granted.", Toast.LENGTH_LONG).show()
+        }
+        val audioConfiguration = AudioPlaybackCaptureConfiguration.Builder(mediaProjection!!)
+            .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
+            .build()
+
+        val audioFormat = AudioFormat.Builder()
+            .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .setSampleRate(48000)
+            .build()
+
+        return AudioRecord.Builder()
+            .setBufferSizeInBytes(128)
+            .setAudioPlaybackCaptureConfig(audioConfiguration)
+            .setAudioFormat(audioFormat)
+            .build()
+    }
+    private fun checkPermission(): Boolean {
+        val result = ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+        return result == PackageManager.PERMISSION_GRANTED
+    }
+
 }
 
 @Composable
-fun TranscriptDisplay(mediaProjectionLauncher: ActivityResultLauncher<Intent>,
-                      createScreenCaptureIntent: Intent,
+fun TranscriptDisplay(recordAudioPermissionLauncher: ActivityResultLauncher<String>,
                       modifier: Modifier = Modifier) {
     Column (
         modifier = modifier.padding(10.dp),
@@ -83,8 +129,13 @@ fun TranscriptDisplay(mediaProjectionLauncher: ActivityResultLauncher<Intent>,
 
         val onEnabled: (Boolean) -> Unit = {
             enabled = it
-            displayedText = if (it) listeningDisplayText else initialDisplayText
-            mediaProjectionLauncher.launch(createScreenCaptureIntent)
+
+            if (enabled) {
+                displayedText = listeningDisplayText
+                recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            } else {
+                displayedText = initialDisplayText
+            }
         }
 
         IconToggleButton(checked = enabled,
