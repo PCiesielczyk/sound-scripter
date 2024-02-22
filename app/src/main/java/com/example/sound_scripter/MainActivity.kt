@@ -1,19 +1,13 @@
 package com.example.sound_scripter
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.Manifest
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioPlaybackCaptureConfiguration
-import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,15 +31,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.ActivityCompat
+import com.example.sound_scripter.audioutils.AudioManager
 import com.example.sound_scripter.services.AudioCaptureService
 import com.example.sound_scripter.ui.theme.SoundScripterTheme
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var mediaProjectionManager: MediaProjectionManager
+    private var audioManager: AudioManager? = null
     private var mediaProjection: MediaProjection? = null
-    private lateinit var audioRecord: AudioRecord
 
     private val mediaProjectionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -59,10 +53,23 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted && mediaProjection != null) {
-            audioRecord = getAudioRecord()
-            audioRecord.startRecording()
+            audioManager = AudioManager(mediaProjection!!)
+            audioManager?.setAudioRecord(this)
         } else {
             Toast.makeText(this, "Record audio permission not granted.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val startRecording: () -> Unit = {
+        if (audioManager == null) {
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+        audioManager?.audioRecord?.startRecording()
+    }
+
+    private val stopRecording: () -> Unit = {
+        if (audioManager?.audioRecord != null) {
+            audioManager?.audioRecord!!.stop()
         }
     }
 
@@ -80,41 +87,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             SoundScripterTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    TranscriptDisplay(recordAudioPermissionLauncher)
+                    TranscriptDisplay(startRecording, stopRecording)
                 }
             }
         }
     }
 
-    private fun getAudioRecord(): AudioRecord {
-        if (!checkPermission()) {
-            Toast.makeText(this, "Record audio permission not granted.", Toast.LENGTH_LONG).show()
-        }
-        val audioConfiguration = AudioPlaybackCaptureConfiguration.Builder(mediaProjection!!)
-            .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
-            .build()
-
-        val audioFormat = AudioFormat.Builder()
-            .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            .setSampleRate(48000)
-            .build()
-
-        return AudioRecord.Builder()
-            .setBufferSizeInBytes(128)
-            .setAudioPlaybackCaptureConfig(audioConfiguration)
-            .setAudioFormat(audioFormat)
-            .build()
-    }
-    private fun checkPermission(): Boolean {
-        val result = ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-        return result == PackageManager.PERMISSION_GRANTED
-    }
-
 }
 
 @Composable
-fun TranscriptDisplay(recordAudioPermissionLauncher: ActivityResultLauncher<String>,
+fun TranscriptDisplay(startRecording: () -> Unit,
+                      stopRecording: () -> Unit,
                       modifier: Modifier = Modifier) {
     Column (
         modifier = modifier.padding(10.dp),
@@ -130,11 +113,12 @@ fun TranscriptDisplay(recordAudioPermissionLauncher: ActivityResultLauncher<Stri
         val onEnabled: (Boolean) -> Unit = {
             enabled = it
 
-            if (enabled) {
-                displayedText = listeningDisplayText
-                recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            displayedText = if (enabled) {
+                startRecording()
+                listeningDisplayText
             } else {
-                displayedText = initialDisplayText
+                stopRecording()
+                initialDisplayText
             }
         }
 
