@@ -15,21 +15,21 @@ import androidx.core.app.ActivityCompat
 
 class AudioManager (mediaProjection: MediaProjection){
     companion object AudioProperties {
-        val matchingUsage = AudioAttributes.USAGE_MEDIA
-        val channelMask = AudioFormat.CHANNEL_IN_MONO
-        val encoding = AudioFormat.ENCODING_PCM_16BIT
-        val sampleRate = 48000
-        val bufferSizeInBytes = 128
+        const val MATCHING_USAGE = AudioAttributes.USAGE_MEDIA
+        const val CHANNEL_MASK = AudioFormat.CHANNEL_IN_MONO
+        const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
+        const val SAMPLE_RATE = 48000
+        const val BUFFER_SIZE_IN_BYTES = 128
     }
 
     private val audioConfiguration = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
-        .addMatchingUsage(matchingUsage)
+        .addMatchingUsage(MATCHING_USAGE)
         .build()
 
     private val audioFormat = AudioFormat.Builder()
-        .setChannelMask(channelMask)
-        .setEncoding(encoding)
-        .setSampleRate(sampleRate)
+        .setChannelMask(CHANNEL_MASK)
+        .setEncoding(ENCODING)
+        .setSampleRate(SAMPLE_RATE)
         .build()
 
     var audioRecord: AudioRecord? = null
@@ -41,7 +41,7 @@ class AudioManager (mediaProjection: MediaProjection){
         }
 
         audioRecord = AudioRecord.Builder()
-            .setBufferSizeInBytes(bufferSizeInBytes)
+            .setBufferSizeInBytes(BUFFER_SIZE_IN_BYTES)
             .setAudioPlaybackCaptureConfig(audioConfiguration)
             .setAudioFormat(audioFormat)
             .build()
