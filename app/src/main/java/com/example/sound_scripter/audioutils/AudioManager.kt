@@ -13,7 +13,7 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 
 
-class AudioManager (mediaProjection: MediaProjection){
+class AudioManager (mediaProjection: MediaProjection) : Thread() {
     companion object AudioProperties {
         const val MATCHING_USAGE = AudioAttributes.USAGE_MEDIA
         const val CHANNEL_MASK = AudioFormat.CHANNEL_IN_MONO
@@ -21,6 +21,9 @@ class AudioManager (mediaProjection: MediaProjection){
         const val SAMPLE_RATE = 48000
         const val BUFFER_SIZE_IN_BYTES = 128
     }
+
+    private var enabled = true
+    var bytesRead: Int? = 0
 
     private val audioConfiguration = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
         .addMatchingUsage(MATCHING_USAGE)
@@ -33,6 +36,23 @@ class AudioManager (mediaProjection: MediaProjection){
         .build()
 
     var audioRecord: AudioRecord? = null
+
+    override fun run() {
+        super.run()
+
+        val buffer = ByteArray(BUFFER_SIZE_IN_BYTES)
+        audioRecord?.startRecording()
+
+        while (enabled) {
+            bytesRead = audioRecord?.read(buffer, 0, buffer.size)
+        }
+        audioRecord?.stop()
+        audioRecord?.release()
+    }
+
+    fun stopRecording() {
+        enabled = false
+    }
 
     fun setAudioRecord(context: Context) {
         if (!checkPermission(context)) {

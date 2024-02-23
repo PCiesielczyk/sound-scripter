@@ -60,18 +60,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val startRecording: () -> Unit = {
-        if (audioManager == null) {
-            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-        audioManager?.audioRecord?.startRecording()
-    }
-
-    private val stopRecording: () -> Unit = {
-        if (audioManager?.audioRecord != null) {
-            audioManager?.audioRecord!!.stop()
-        }
-    }
+    private val getAudioManager: () -> AudioManager? = { audioManager }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,11 +72,12 @@ class MainActivity : ComponentActivity() {
         startForegroundService(audioCaptureServiceIntent)
 
         mediaProjectionLauncher.launch(createScreenCaptureIntent)
+        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 
         setContent {
             SoundScripterTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    TranscriptDisplay(startRecording, stopRecording)
+                    TranscriptDisplay(getAudioManager)
                 }
             }
         }
@@ -96,8 +86,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun TranscriptDisplay(startRecording: () -> Unit,
-                      stopRecording: () -> Unit,
+fun TranscriptDisplay(getAudioManager: () -> AudioManager?,
                       modifier: Modifier = Modifier) {
     Column (
         modifier = modifier.padding(10.dp),
@@ -109,15 +98,23 @@ fun TranscriptDisplay(startRecording: () -> Unit,
 
         var enabled by remember { mutableStateOf(false) }
         var displayedText by remember { mutableStateOf(initialDisplayText) }
+        var audioManager by remember { mutableStateOf<AudioManager?>(null) }
+
 
         val onEnabled: (Boolean) -> Unit = {
             enabled = it
 
             displayedText = if (enabled) {
-                startRecording()
+                if (audioManager == null ) {
+                    audioManager = getAudioManager()
+                }
+                audioManager?.start()
+                if (audioManager?.bytesRead != null) {
+                    audioManager?.bytesRead.toString()
+                }
                 listeningDisplayText
             } else {
-                stopRecording()
+                audioManager?.stopRecording()
                 initialDisplayText
             }
         }
