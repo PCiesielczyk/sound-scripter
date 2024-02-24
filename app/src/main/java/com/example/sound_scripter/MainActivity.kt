@@ -99,22 +99,25 @@ fun TranscriptDisplay(getAudioManager: () -> AudioManager?,
         var enabled by remember { mutableStateOf(false) }
         var displayedText by remember { mutableStateOf(initialDisplayText) }
         var audioManager by remember { mutableStateOf<AudioManager?>(null) }
+        var recordingThread: Thread? = null
 
 
         val onEnabled: (Boolean) -> Unit = {
             enabled = it
 
             displayedText = if (enabled) {
-                if (audioManager == null ) {
-                    audioManager = getAudioManager()
+                audioManager = getAudioManager()
+                recordingThread = Thread(audioManager)
+                recordingThread?.start()
+                if (audioManager?.dataRead != null) {
+                    audioManager?.dataRead.contentToString()
+                } else {
+                    listeningDisplayText
                 }
-                audioManager?.start()
-                if (audioManager?.bytesRead != null) {
-                    audioManager?.bytesRead.toString()
-                }
-                listeningDisplayText
             } else {
                 audioManager?.stopRecording()
+                recordingThread?.join()
+                audioManager?.dataRead.contentToString()
                 initialDisplayText
             }
         }
