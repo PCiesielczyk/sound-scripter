@@ -9,24 +9,29 @@ import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
+import android.os.Environment
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
+import java.io.FileNotFoundException
+import java.io.FileOutputStream
+import java.io.IOException
 
 
-class AudioManager (mediaProjection: MediaProjection) : Runnable {
+class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
     companion object AudioProperties {
-        const val MATCHING_USAGE = AudioAttributes.USAGE_MEDIA
         const val CHANNEL_MASK = AudioFormat.CHANNEL_IN_MONO
         const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
-        const val SAMPLE_RATE = 48000
-        const val BUFFER_SIZE_IN_BYTES = 128
+        const val SAMPLE_RATE = 44100
+        val bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, ENCODING)
     }
 
     private var enabled = true
-    var dataRead = ByteArray(BUFFER_SIZE_IN_BYTES)
+    var dataRead = ByteArray(bufferSize / 2)
 
     private val audioConfiguration = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
-        .addMatchingUsage(MATCHING_USAGE)
+        .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
+        .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
+        .addMatchingUsage(AudioAttributes.USAGE_GAME)
         .build()
 
     private val audioFormat = AudioFormat.Builder()
@@ -35,17 +40,33 @@ class AudioManager (mediaProjection: MediaProjection) : Runnable {
         .setSampleRate(SAMPLE_RATE)
         .build()
 
-    var audioRecord: AudioRecord? = null
+    private var audioRecord: AudioRecord? = null
 
     override fun run() {
-
+        val fileName =  Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/capturedAudio2" + ".pcm"
         audioRecord?.startRecording()
         enabled = true
 
-        while (enabled) {
-            val bytesRead = audioRecord?.read(dataRead, 0, dataRead.size)
+        val outputStream: FileOutputStream?
+        try {
+            outputStream = FileOutputStream(fileName)
+        } catch (e: FileNotFoundException) {
+            return
         }
-        audioRecord?.stop()
+        while (enabled) {
+            val bytesRead = audioRecord!!.read(dataRead, 0, dataRead.size)
+            try {
+                outputStream.write(dataRead, 0, bytesRead)
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+        try {
+            outputStream.flush()
+            outputStream.close()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
     }
 
     fun stopRecording() {
@@ -59,7 +80,7 @@ class AudioManager (mediaProjection: MediaProjection) : Runnable {
         }
 
         audioRecord = AudioRecord.Builder()
-            .setBufferSizeInBytes(BUFFER_SIZE_IN_BYTES)
+            .setBufferSizeInBytes(bufferSize)
             .setAudioPlaybackCaptureConfig(audioConfiguration)
             .setAudioFormat(audioFormat)
             .build()

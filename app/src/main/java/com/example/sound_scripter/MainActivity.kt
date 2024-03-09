@@ -2,6 +2,8 @@ package com.example.sound_scripter
 
 import android.content.Intent
 import android.Manifest
+import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
@@ -15,12 +17,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.paddingFromBaseline
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,14 +36,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.sound_scripter.audioutils.AudioManager
+import com.example.sound_scripter.audioutils.AudioCaptureManager
 import com.example.sound_scripter.services.AudioCaptureService
 import com.example.sound_scripter.ui.theme.SoundScripterTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var mediaProjectionManager: MediaProjectionManager
-    private var audioManager: AudioManager? = null
+    private var audioCaptureManager: AudioCaptureManager? = null
     private var mediaProjection: MediaProjection? = null
 
     private val mediaProjectionLauncher = registerForActivityResult(
@@ -53,14 +59,14 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted && mediaProjection != null) {
-            audioManager = AudioManager(mediaProjection!!)
-            audioManager?.setAudioRecord(this)
+            audioCaptureManager = AudioCaptureManager(mediaProjection!!)
+            audioCaptureManager?.setAudioRecord(this)
         } else {
             Toast.makeText(this, "Record audio permission not granted.", Toast.LENGTH_LONG).show()
         }
     }
 
-    private val getAudioManager: () -> AudioManager? = { audioManager }
+    private val getAudioCaptureManager: () -> AudioCaptureManager? = { audioCaptureManager }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,7 +83,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             SoundScripterTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    TranscriptDisplay(getAudioManager)
+                    TranscriptDisplay(getAudioCaptureManager)
                 }
             }
         }
@@ -86,11 +92,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun TranscriptDisplay(getAudioManager: () -> AudioManager?,
+fun TranscriptDisplay(getAudioCaptureManager: () -> AudioCaptureManager?,
                       modifier: Modifier = Modifier) {
     Column (
         modifier = modifier.padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
 
         val initialDisplayText = "Your transcription will be here"
@@ -98,26 +104,34 @@ fun TranscriptDisplay(getAudioManager: () -> AudioManager?,
 
         var enabled by remember { mutableStateOf(false) }
         var displayedText by remember { mutableStateOf(initialDisplayText) }
-        var audioManager by remember { mutableStateOf<AudioManager?>(null) }
+        var audioCaptureManager by remember { mutableStateOf<AudioCaptureManager?>(null) }
         var recordingThread: Thread? = null
 
+        LaunchedEffect(enabled) {
+            while (enabled) {
+                if (audioCaptureManager?.dataRead?.isEmpty() == false) {
+                    displayedText = audioCaptureManager?.dataRead.contentToString()
+                }
+                delay(500)
+            }
+        }
 
         val onEnabled: (Boolean) -> Unit = {
             enabled = it
 
             displayedText = if (enabled) {
-                audioManager = getAudioManager()
-                recordingThread = Thread(audioManager)
+                audioCaptureManager = getAudioCaptureManager()
+                recordingThread = Thread(audioCaptureManager)
                 recordingThread?.start()
-                if (audioManager?.dataRead != null) {
-                    audioManager?.dataRead.contentToString()
+                if (audioCaptureManager?.dataRead != null) {
+                    audioCaptureManager?.dataRead.contentToString()
                 } else {
                     listeningDisplayText
                 }
             } else {
-                audioManager?.stopRecording()
+                audioCaptureManager?.stopRecording()
                 recordingThread?.join()
-                audioManager?.dataRead.contentToString()
+                audioCaptureManager?.dataRead.contentToString()
                 initialDisplayText
             }
         }
@@ -145,7 +159,9 @@ fun TranscriptDisplay(getAudioManager: () -> AudioManager?,
 
         Text(
             text = displayedText,
-            modifier = modifier.paddingFromBaseline(bottom = 20.dp),
+            modifier = modifier
+                .paddingFromBaseline(bottom = 20.dp)
+                .verticalScroll(rememberScrollState()),
             fontSize = 21.sp,
             color = Color.LightGray
         )
