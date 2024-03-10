@@ -1,4 +1,4 @@
-package com.example.sound_scripter.audioutils
+package com.example.sound_scripter.audiocapture
 
 
 import android.Manifest
@@ -21,12 +21,9 @@ class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
     companion object AudioProperties {
         const val CHANNEL_MASK = AudioFormat.CHANNEL_IN_MONO
         const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
-        const val SAMPLE_RATE = 44100
+        const val SAMPLE_RATE = 16000
         val bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, ENCODING)
     }
-
-    private var enabled = true
-    var dataRead = ByteArray(bufferSize / 2)
 
     private val audioConfiguration = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
         .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
@@ -41,11 +38,14 @@ class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
         .build()
 
     private var audioRecord: AudioRecord? = null
+    private var capturingEnabled = true
+
+    var dataRead = ByteArray(bufferSize / 2)
 
     override fun run() {
         val fileName =  Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/capturedAudio2" + ".pcm"
         audioRecord?.startRecording()
-        enabled = true
+        capturingEnabled = true
 
         val outputStream: FileOutputStream?
         try {
@@ -53,7 +53,7 @@ class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
         } catch (e: FileNotFoundException) {
             return
         }
-        while (enabled) {
+        while (capturingEnabled) {
             val bytesRead = audioRecord!!.read(dataRead, 0, dataRead.size)
             try {
                 outputStream.write(dataRead, 0, bytesRead)
@@ -70,7 +70,7 @@ class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
     }
 
     fun stopRecording() {
-        enabled = false
+        capturingEnabled = false
     }
 
     fun setAudioRecord(context: Context) {

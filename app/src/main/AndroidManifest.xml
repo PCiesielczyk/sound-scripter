@@ -28,7 +28,7 @@
             </intent-filter>
         </activity>
         <service
-                android:name=".services.AudioCaptureService"
+                android:name=".audiocapture.AudioCaptureService"
                 android:foregroundServiceType="mediaProjection">
         </service>
     </application>

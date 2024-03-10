@@ -1,4 +1,4 @@
-package com.example.sound_scripter.services
+package com.example.sound_scripter.audiocapture
 
 import android.app.Service
 import android.content.Intent

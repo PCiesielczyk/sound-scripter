@@ -2,8 +2,6 @@ package com.example.sound_scripter
 
 import android.content.Intent
 import android.Manifest
-import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
@@ -36,8 +34,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.sound_scripter.audioutils.AudioCaptureManager
-import com.example.sound_scripter.services.AudioCaptureService
+import com.example.sound_scripter.audiocapture.AudioCaptureManager
+import com.example.sound_scripter.audiocapture.AudioCaptureService
 import com.example.sound_scripter.ui.theme.SoundScripterTheme
 import kotlinx.coroutines.delay
 
