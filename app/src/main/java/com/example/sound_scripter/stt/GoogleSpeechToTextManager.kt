@@ -49,8 +49,13 @@ class GoogleSpeechToTextManager {
         }
     }
 
+    private lateinit var clientStream: ClientStream<StreamingRecognizeRequest>
+
+
     private fun initializeSpeechClient() {
         speechClient = SpeechClient.create()
+        clientStream = speechClient.streamingRecognizeCallable().splitCall(responseObserver)
+        clientStream.send(request)
     }
 
     private fun closeSpeechClient() {
@@ -58,14 +63,9 @@ class GoogleSpeechToTextManager {
     }
 
     fun transcribeAudio(byteArray: ByteArray) {
-        val clientStream: ClientStream<StreamingRecognizeRequest> =
-            speechClient.streamingRecognizeCallable().splitCall(responseObserver)
-
-        clientStream.send(request)
         request = StreamingRecognizeRequest.newBuilder()
             .setAudioContent(ByteString.copyFrom(byteArray))
             .build()
         clientStream.send(request)
-        closeSpeechClient()
     }
 }

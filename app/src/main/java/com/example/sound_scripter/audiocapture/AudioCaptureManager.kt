@@ -9,12 +9,8 @@ import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
-import android.os.Environment
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
-import java.io.FileNotFoundException
-import java.io.FileOutputStream
-import java.io.IOException
 
 
 class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
@@ -43,29 +39,11 @@ class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
     var dataRead = ByteArray(bufferSize / 2)
 
     override fun run() {
-        val fileName =  Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/capturedAudio2" + ".pcm"
         audioRecord?.startRecording()
         capturingEnabled = true
 
-        val outputStream: FileOutputStream?
-        try {
-            outputStream = FileOutputStream(fileName)
-        } catch (e: FileNotFoundException) {
-            return
-        }
         while (capturingEnabled) {
             val bytesRead = audioRecord!!.read(dataRead, 0, dataRead.size)
-            try {
-                outputStream.write(dataRead, 0, bytesRead)
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
-        }
-        try {
-            outputStream.flush()
-            outputStream.close()
-        } catch (e: IOException) {
-            e.printStackTrace()
         }
     }
 
