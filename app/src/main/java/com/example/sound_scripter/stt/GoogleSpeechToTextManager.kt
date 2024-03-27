@@ -52,13 +52,13 @@ class GoogleSpeechToTextManager {
     private lateinit var clientStream: ClientStream<StreamingRecognizeRequest>
 
 
-    private fun initializeSpeechClient() {
+    fun initializeSpeechClient() {
         speechClient = SpeechClient.create()
         clientStream = speechClient.streamingRecognizeCallable().splitCall(responseObserver)
         clientStream.send(request)
     }
 
-    private fun closeSpeechClient() {
+    fun closeSpeechClient() {
         speechClient.close()
     }
 

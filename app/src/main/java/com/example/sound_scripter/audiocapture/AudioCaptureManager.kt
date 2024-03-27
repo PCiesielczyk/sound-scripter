@@ -11,6 +11,7 @@ import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
+import com.example.sound_scripter.stt.GoogleSpeechToTextManager
 
 
 class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
@@ -33,6 +34,8 @@ class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
         .setSampleRate(SAMPLE_RATE)
         .build()
 
+    private val speechToTextManager = GoogleSpeechToTextManager()
+
     private var audioRecord: AudioRecord? = null
     private var capturingEnabled = true
 
@@ -41,14 +44,17 @@ class AudioCaptureManager (mediaProjection: MediaProjection) : Runnable {
     override fun run() {
         audioRecord?.startRecording()
         capturingEnabled = true
+        speechToTextManager.initializeSpeechClient()
 
         while (capturingEnabled) {
             val bytesRead = audioRecord!!.read(dataRead, 0, dataRead.size)
+            speechToTextManager.transcribeAudio(dataRead)
         }
     }
 
     fun stopRecording() {
         capturingEnabled = false
+        speechToTextManager.closeSpeechClient()
     }
 
     fun setAudioRecord(context: Context) {

@@ -1,3 +1,5 @@
+import com.android.build.api.dsl.Packaging
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -18,6 +20,14 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        packaging {
+            resources {
+                excludes += "META-INF/INDEX.LIST"
+                excludes += "META-INF/DEPENDENCIES"
+            }
+        }
+
     }
 
     buildTypes {
